@@ -34,8 +34,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 LeadFlow backend running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 LeadFlow backend running on http://0.0.0.0:${PORT}`);
 
   // Auto-connect to WhatsApp as soon as the server starts, so the client
   // is already authenticating (or ready) before the frontend even loads.
