@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { initWhatsApp, getWhatsAppState, logoutWhatsApp } from "../whatsapp/client.js";
+import { initWhatsApp, getWhatsAppState, logoutWhatsApp } from "../client.js";
 
 const router = Router();
 
