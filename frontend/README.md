@@ -29,4 +29,4 @@ pnpm dev
   WhatsApp connection
 - **Resend confirmation** — if any selected lead was already messaged, shows
   a modal asking to confirm before resending
-- **WhatsApp connection panel** — shows QR code to scan, live connection status
+- **WhatsApp connection panel** — shows QR code to scan, live connection statustatus
