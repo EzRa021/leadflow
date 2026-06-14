@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 20% 8%;
+    --foreground: 220 14% 92%;
+    --card: 224 18% 11%;
+    --card-foreground: 220 14% 92%;
+    --popover: 224 18% 11%;
+    --popover-foreground: 220 14% 92%;
+    --primary: 166 75% 60%;
+    --primary-foreground: 222 20% 8%;
+    --secondary: 224 16% 16%;
+    --secondary-foreground: 220 14% 92%;
+    --muted: 224 16% 16%;
+    --muted-foreground: 220 10% 56%;
+    --accent: 224 16% 16%;
+    --accent-foreground: 220 14% 92%;
+    --destructive: 350 80% 60%;
+    --destructive-foreground: 220 14% 92%;
+    --border: 224 16% 18%;
+    --input: 224 16% 18%;
+    --ring: 166 75% 60%;
+    --radius: 0.625rem;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-body antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+
+  ::selection {
+    background: rgba(94, 230, 197, 0.2);
+  }
+
+  :focus-visible {
+    outline: 2px solid #5ee6c5;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #262b3a; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #8b93a7; }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .font-mono-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .glass {
+    background: rgba(19, 22, 31, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
