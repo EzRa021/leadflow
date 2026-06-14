@@ -2,52 +2,50 @@ import pkg from "whatsapp-web.js";
 import qrcode from "qrcode";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
-import { createRequire } from "module";
 
 const { Client, LocalAuth } = pkg;
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Dynamically find whatever Chrome version Puppeteer
-// downloaded â€” avoids hardcoding a version number that
-// drifts every Puppeteer release.
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getChromePath() {
-  const searchRoots = [
-    "/opt/render/.cache/puppeteer",             // Render default cache
-    join(process.cwd(), ".cache", "puppeteer"), // project-local cache
+  // Priority 1: explicit env var set in Render dashboard
+  const cacheDir = process.env.PUPPETEER_CACHE_DIR;
+  if (cacheDir) {
+    const chromeDir = join(cacheDir, "chrome");
+    console.log("ðŸ” Checking PUPPETEER_CACHE_DIR:", chromeDir);
+    if (existsSync(chromeDir)) {
+      const versions = readdirSync(chromeDir).filter((d) => d.startsWith("linux-"));
+      for (const version of versions) {
+        const bin = join(chromeDir, version, "chrome-linux64", "chrome");
+        if (existsSync(bin)) {
+          console.log("ðŸŒ Found Chrome at:", bin);
+          return bin;
+        }
+      }
+    }
+  }
+
+  // Priority 2: scan all known possible locations
+  const roots = [
+    "/opt/render/project/src/.cache/puppeteer",
+    "/opt/render/project/.cache/puppeteer",
+    join(process.cwd(), ".cache", "puppeteer"),
+    "/opt/render/.cache/puppeteer",
   ];
 
-  for (const root of searchRoots) {
-    if (!existsSync(root)) continue;
-
-    // Walk: root/chrome/linux-<version>/chrome-linux64/chrome
+  for (const root of roots) {
     const chromeDir = join(root, "chrome");
+    console.log("ðŸ” Checking:", chromeDir);
     if (!existsSync(chromeDir)) continue;
-
     const versions = readdirSync(chromeDir).filter((d) => d.startsWith("linux-"));
     for (const version of versions) {
       const bin = join(chromeDir, version, "chrome-linux64", "chrome");
       if (existsSync(bin)) {
-        console.log(`ðŸŒ Found Chrome at: ${bin}`);
+        console.log("ðŸŒ Found Chrome at:", bin);
         return bin;
       }
     }
   }
 
-  // Fallback: ask Puppeteer itself
-  try {
-    const require = createRequire(import.meta.url);
-    const puppeteer = require("puppeteer");
-    const path = puppeteer.executablePath();
-    if (path && existsSync(path)) {
-      console.log(`ðŸŒ Puppeteer reports Chrome at: ${path}`);
-      return path;
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  console.warn("âš ï¸  Chrome not found in any known location.");
+  console.error("âŒ Chrome not found in any location. Searched:", roots);
   return null;
 }
 
