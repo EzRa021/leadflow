@@ -1,6 +1,5 @@
 import pkg from "whatsapp-web.js";
 import qrcode from "qrcode";
-import fs from "fs";
 
 // ─────────────────────────────────────────────────────────
 // Singleton WhatsApp client manager.
@@ -15,24 +14,6 @@ let state = {
   info: null, // { pushname, wid } once ready
 };
 
-function findChrome() {
-  const candidates = [
-    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-    process.env.LOCALAPPDATA
-      ? `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`
-      : null,
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
-  ].filter(Boolean);
-
-  for (const path of candidates) {
-    if (fs.existsSync(path)) return path;
-  }
-  return null;
-}
-
 export function getWhatsAppState() {
   return state;
 }
@@ -40,14 +21,25 @@ export function getWhatsAppState() {
 export function initWhatsApp() {
   if (client) return client;
 
-  const executablePath = findChrome();
-
   client = new Client({
     authStrategy: new LocalAuth({ dataPath: "./.wwebjs_auth" }),
     puppeteer: {
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      ...(executablePath ? { executablePath } : {}),
+      // These args are required for running Chromium inside Linux containers
+      // (Render, Docker, etc.) where the sandbox and shared memory are restricted.
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",   // prevents crashes when /dev/shm is too small
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",          // keeps Chromium in one process (vital on Render)
+        "--disable-extensions",
+        "--disable-software-rasterizer",
+      ],
+      // Do NOT set executablePath — let Puppeteer use its own bundled Chromium.
+      // Relying on system Chrome is unreliable on hosted Linux environments.
     },
   });
 
