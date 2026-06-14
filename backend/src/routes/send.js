@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { supabase } from "../db/supabase.js";
-import { getClient, getWhatsAppState } from "../whatsapp/client.js";
+import { getClient, getWhatsAppState } from "../client.js";
 import { renderTemplate, toWhatsAppId } from "../lib/messages.js";
 
 const router = Router();
