@@ -7,7 +7,7 @@ import leadsRoutes from "./routes/leads.js";
 import whatsappRoutes from "./routes/whatsapp.js";
 import sendRoutes from "./routes/send.js";
 import templatesRoutes from "./routes/templates.js";
-import { initWhatsApp } from "./whatsapp/client.js";
+import { initWhatsApp } from "./client.js";
 
 dotenv.config();
 
