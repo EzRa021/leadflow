@@ -19,7 +19,20 @@ export function getWhatsAppState() {
   return state;
 }
 
+// ─────────────────────────────────────────────────────────
+// Chrome path — Docker sets PUPPETEER_EXECUTABLE_PATH to
+// the system Chromium. Falls back to cache-based detection
+// for non-Docker environments (local dev, Render, etc.)
+// ─────────────────────────────────────────────────────────
 function getChromePath() {
+  // 1. Docker / explicit path via env var
+  const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (envPath && existsSync(envPath)) {
+    console.log("🌐 [Chrome] Using system Chromium:", envPath);
+    return envPath;
+  }
+
+  // 2. Cache-based detection (Render / local)
   const roots = [
     process.env.PUPPETEER_CACHE_DIR,
     "/opt/render/project/src/.cache/puppeteer",
@@ -29,7 +42,9 @@ function getChromePath() {
   for (const root of roots) {
     const chromeDir = join(root, "chrome");
     if (!existsSync(chromeDir)) continue;
-    const versions = readdirSync(chromeDir).filter((d) => d.startsWith("linux-"));
+    const versions = readdirSync(chromeDir).filter((d) =>
+      d.startsWith("linux-")
+    );
     for (const v of versions) {
       const bin = join(chromeDir, v, "chrome-linux64", "chrome");
       if (existsSync(bin)) {
@@ -38,13 +53,16 @@ function getChromePath() {
       }
     }
   }
-  console.error("❌ [Chrome] Not found in any known location.");
+
+  console.error(
+    "❌ [Chrome] Not found. Set PUPPETEER_EXECUTABLE_PATH env var."
+  );
   return null;
 }
 
 function scheduleRestart(delayMs = 10000) {
-  if (restartTimer) return; // already scheduled
-  console.log(`🔄 [WhatsApp] Scheduling restart in ${delayMs / 1000}s...`);
+  if (restartTimer) return;
+  console.log(`🔄 [WhatsApp] Restarting in ${delayMs / 1000}s...`);
   restartTimer = setTimeout(() => {
     restartTimer = null;
     initWhatsApp();
@@ -53,11 +71,13 @@ function scheduleRestart(delayMs = 10000) {
 
 export function initWhatsApp() {
   if (client) {
-    console.log("ℹ️  [WhatsApp] Already running, skipping init.");
+    console.log("ℹ️ [WhatsApp] Already running, skipping init.");
     return client;
   }
   if (isInitializing) {
-    console.log("ℹ️  [WhatsApp] Already initializing, skipping duplicate call.");
+    console.log(
+      "ℹ️ [WhatsApp] Already initializing, skipping duplicate call."
+    );
     return null;
   }
 
@@ -74,7 +94,7 @@ export function initWhatsApp() {
     }),
     puppeteer: {
       headless: true,
-      ...(executablePath ? { executablePath } : {}),
+      executablePath,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -121,14 +141,17 @@ export function initWhatsApp() {
   });
 
   client.on("disconnected", (reason) => {
-    console.log("⚠️  [WhatsApp] Disconnected:", reason);
+    console.log("⚠️ [WhatsApp] Disconnected:", reason);
     state.status = "disconnected";
     state.info = null;
     isInitializing = false;
-    client.destroy().catch(() => {}).finally(() => {
-      client = null;
-      scheduleRestart(10000);
-    });
+    client
+      .destroy()
+      .catch(() => {})
+      .finally(() => {
+        client = null;
+        scheduleRestart(10000);
+      });
   });
 
   client.on("auth_failure", (msg) => {
@@ -160,8 +183,12 @@ export async function logoutWhatsApp() {
     restartTimer = null;
   }
   if (client) {
-    try { await client.logout(); } catch (e) {}
-    try { await client.destroy(); } catch (e) {}
+    try {
+      await client.logout();
+    } catch (e) {}
+    try {
+      await client.destroy();
+    } catch (e) {}
     client = null;
     isInitializing = false;
     state = { status: "disconnected", qrDataUrl: null, info: null };
