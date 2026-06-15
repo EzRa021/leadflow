@@ -7,18 +7,25 @@ import leadsRoutes from "./routes/leads.js";
 import whatsappRoutes from "./routes/whatsapp.js";
 import sendRoutes from "./routes/send.js";
 import templatesRoutes from "./routes/templates.js";
-import { initWhatsApp } from "./client.js";
+import { initWhatsApp } from "./whatsapp/client.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Allow all origins — no CORS errors from any frontend domain
 app.use(
   cors({
-    origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
-  }),
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
 );
+
+// Handle preflight requests for all routes
+app.options("*", cors());
+
 app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
@@ -36,11 +43,6 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 LeadFlow backend running on http://0.0.0.0:${PORT}`);
-
-  // Auto-connect to WhatsApp as soon as the server starts, so the client
-  // is already authenticating (or ready) before the frontend even loads.
-  // The frontend's WhatsAppAutoConnect just polls /api/whatsapp/status
-  // and reflects whatever state this produces in real time.
   console.log("📲 Starting WhatsApp client...");
   initWhatsApp();
 });
