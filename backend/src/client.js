@@ -5,11 +5,9 @@ import { join } from "path";
 
 const { Client, LocalAuth } = pkg;
 
-// ─────────────────────────────────────────────────────────
-// Guards — prevent multiple Chromium instances
-// ─────────────────────────────────────────────────────────
 let client = null;
-let isInitializing = false; // lock so concurrent calls don't spawn extras
+let isInitializing = false;
+let restartTimer = null;
 
 let state = {
   status: "disconnected",
@@ -21,72 +19,58 @@ export function getWhatsAppState() {
   return state;
 }
 
-// ─────────────────────────────────────────────────────────
-// Chrome path detection
-// ─────────────────────────────────────────────────────────
 function getChromePath() {
-  const cacheDir = process.env.PUPPETEER_CACHE_DIR;
-  if (cacheDir) {
-    const chromeDir = join(cacheDir, "chrome");
-    if (existsSync(chromeDir)) {
-      const versions = readdirSync(chromeDir).filter((d) => d.startsWith("linux-"));
-      for (const version of versions) {
-        const bin = join(chromeDir, version, "chrome-linux64", "chrome");
-        if (existsSync(bin)) {
-          console.log("🌐 Found Chrome at:", bin);
-          return bin;
-        }
-      }
-    }
-  }
-
   const roots = [
+    process.env.PUPPETEER_CACHE_DIR,
     "/opt/render/project/src/.cache/puppeteer",
-    "/opt/render/project/.cache/puppeteer",
     join(process.cwd(), ".cache", "puppeteer"),
-    "/opt/render/.cache/puppeteer",
-  ];
+  ].filter(Boolean);
 
   for (const root of roots) {
     const chromeDir = join(root, "chrome");
     if (!existsSync(chromeDir)) continue;
     const versions = readdirSync(chromeDir).filter((d) => d.startsWith("linux-"));
-    for (const version of versions) {
-      const bin = join(chromeDir, version, "chrome-linux64", "chrome");
+    for (const v of versions) {
+      const bin = join(chromeDir, v, "chrome-linux64", "chrome");
       if (existsSync(bin)) {
-        console.log("🌐 Found Chrome at:", bin);
+        console.log("🌐 [Chrome] Found at:", bin);
         return bin;
       }
     }
   }
-
-  console.error("❌ Chrome not found.");
+  console.error("❌ [Chrome] Not found in any known location.");
   return null;
 }
 
-// ─────────────────────────────────────────────────────────
-// Init — safe to call multiple times, only runs once
-// ─────────────────────────────────────────────────────────
+function scheduleRestart(delayMs = 10000) {
+  if (restartTimer) return; // already scheduled
+  console.log(`🔄 [WhatsApp] Scheduling restart in ${delayMs / 1000}s...`);
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    initWhatsApp();
+  }, delayMs);
+}
+
 export function initWhatsApp() {
   if (client) {
-    console.log("ℹ️  [WhatsApp] Client already exists, skipping init.");
+    console.log("ℹ️  [WhatsApp] Already running, skipping init.");
     return client;
   }
-
   if (isInitializing) {
     console.log("ℹ️  [WhatsApp] Already initializing, skipping duplicate call.");
     return null;
   }
 
   isInitializing = true;
-  console.log("🚀 [WhatsApp] Starting client (single instance)...");
+  console.log("🚀 [WhatsApp] Starting client...");
 
   const executablePath = getChromePath();
+  mkdirSync("./.wwebjs_auth", { recursive: true });
 
   client = new Client({
     authStrategy: new LocalAuth({
       dataPath: "./.wwebjs_auth",
-      clientId: "leadflow", // explicit ID prevents duplicate sessions
+      clientId: "leadflow",
     }),
     puppeteer: {
       headless: true,
@@ -94,24 +78,29 @@ export function initWhatsApp() {
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",       // critical for low memory
+        "--disable-dev-shm-usage",
         "--disable-gpu",
         "--no-first-run",
         "--no-zygote",
         "--disable-extensions",
         "--disable-software-rasterizer",
-        "--disable-dev-tools",
-        "--js-flags=--max-old-space-size=256", // cap Node heap at 256MB
-        "--memory-pressure-off",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-sync",
+        "--disable-translate",
+        "--hide-scrollbars",
+        "--metrics-recording-only",
+        "--mute-audio",
+        "--safebrowsing-disable-auto-update",
+        "--js-flags=--max-old-space-size=200",
       ],
-      // Removed --single-process: despite the name it actually uses MORE memory
     },
   });
 
   client.on("qr", async (qr) => {
     state.status = "qr";
     state.qrDataUrl = await qrcode.toDataURL(qr);
-    console.log("📱 [WhatsApp] QR code ready — scan from the frontend.");
+    console.log("📱 [WhatsApp] QR code ready — waiting for scan...");
   });
 
   client.on("authenticated", () => {
@@ -128,19 +117,17 @@ export function initWhatsApp() {
       pushname: client.info?.pushname,
       wid: client.info?.wid?.user,
     };
-    console.log("✅ [WhatsApp] Client ready. Logged in as:", state.info.pushname);
+    console.log("✅ [WhatsApp] Ready. Logged in as:", state.info.pushname);
   });
 
   client.on("disconnected", (reason) => {
-    console.log("⚠️  [WhatsApp] Disconnected:", reason, "— restarting in 10s...");
+    console.log("⚠️  [WhatsApp] Disconnected:", reason);
     state.status = "disconnected";
     state.info = null;
     isInitializing = false;
-
-    // Destroy cleanly before recreating
     client.destroy().catch(() => {}).finally(() => {
       client = null;
-      setTimeout(() => initWhatsApp(), 10000);
+      scheduleRestart(10000);
     });
   });
 
@@ -149,6 +136,7 @@ export function initWhatsApp() {
     state.status = "disconnected";
     isInitializing = false;
     client = null;
+    scheduleRestart(15000);
   });
 
   client.initialize().catch((err) => {
@@ -156,6 +144,7 @@ export function initWhatsApp() {
     state.status = "disconnected";
     isInitializing = false;
     client = null;
+    scheduleRestart(15000);
   });
 
   return client;
@@ -166,6 +155,10 @@ export function getClient() {
 }
 
 export async function logoutWhatsApp() {
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
+  }
   if (client) {
     try { await client.logout(); } catch (e) {}
     try { await client.destroy(); } catch (e) {}
