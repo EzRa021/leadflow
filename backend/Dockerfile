@@ -1,5 +1,5 @@
 # Use official Node.js LTS image (Debian-based, has apt-get)
-FROM node:20-slim
+FROM node:22-slim
 
 # Install Chrome dependencies and Chrome itself
 RUN apt-get update && apt-get install -y \
