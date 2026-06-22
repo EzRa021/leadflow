@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import ws from "ws";
 
 dotenv.config();
 
@@ -13,4 +14,6 @@ if (!url || !key) {
   );
 }
 
-export const supabase = createClient(url || "", key || "");
+export const supabase = createClient(url || "", key || "", {
+  realtime: { transport: ws },
+});
