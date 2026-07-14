@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: leadflow-backend
+    env: node
+    buildCommand: yarn install
+    startCommand: yarn start
+    envVars:
+      - key: PORT
+        value: 4000
