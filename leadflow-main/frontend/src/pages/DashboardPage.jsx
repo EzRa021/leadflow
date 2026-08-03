@@ -92,11 +92,18 @@ export default function DashboardPage() {
     );
   }
 
-  const pending = stats.byStatus.pending || 0;
-  const sent    = stats.byStatus.sent    || 0;
-  const failed  = stats.byStatus.failed  || 0;
-  const skipped = stats.byStatus.skipped || 0;
-  const replied = stats.byStatus.replied || 0;
+  // The stats payload can arrive partial (older backend, or a 200 with an empty
+  // body) — default every nested object so the dashboard renders zeros instead
+  // of throwing.
+  const byStatus = stats.byStatus || {};
+  const thisWeek = stats.thisWeek || { newLeads: 0, sent: 0 };
+  const successRate = stats.successRate || { rate: 0, total: 0 };
+
+  const pending = byStatus.pending || 0;
+  const sent    = byStatus.sent    || 0;
+  const failed  = byStatus.failed  || 0;
+  const skipped = byStatus.skipped || 0;
+  const replied = byStatus.replied || 0;
   const replyRate = sent > 0 ? Math.round((replied / sent) * 100) : 0;
 
   // Merge the two 14-day timelines into one series for the volume chart.
@@ -127,16 +134,16 @@ export default function DashboardPage() {
 
       {/* KPI grid */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Total Leads" value={formatNumber(stats.total)} icon="groups"
-          trendIcon="trending_up" trendText={`+${formatNumber(stats.thisWeek.newLeads)} this week`} />
+        <KpiCard label="Total Leads" value={formatNumber(stats.total || 0)} icon="groups"
+          trendIcon="trending_up" trendText={`+${formatNumber(thisWeek.newLeads || 0)} this week`} />
         <KpiCard label="Messages Sent" value={formatNumber(sent)} icon="send"
-          trendIcon="trending_up" trendText={`+${formatNumber(stats.thisWeek.sent)} this week`} />
+          trendIcon="trending_up" trendText={`+${formatNumber(thisWeek.sent || 0)} this week`} />
         <KpiCard label="Reply Rate %" value={`${replyRate}%`} icon="reply"
           trendIcon={replyRate > 0 ? "trending_up" : "trending_flat"}
           trendText={`${formatNumber(replied)} replied`}
           trendColor={replyRate > 0 ? "text-teal-accent" : "text-amber-warning"} />
-        <KpiCard label="Success Rate" value={`${stats.successRate.rate}%`} icon="verified"
-          trendIcon="trending_up" trendText={`${formatNumber(sent)} of ${formatNumber(stats.successRate.total)}`} />
+        <KpiCard label="Success Rate" value={`${successRate.rate || 0}%`} icon="verified"
+          trendIcon="trending_up" trendText={`${formatNumber(sent)} of ${formatNumber(successRate.total || 0)}`} />
       </section>
 
       {/* Chart + activity split */}
@@ -236,7 +243,7 @@ export default function DashboardPage() {
             <h3 className="font-headline-md text-headline-md text-on-surface">Delivery Health</h3>
           </div>
           <div className="bg-surface-container-high/30 p-4 border border-outline-variant/20 flex flex-col items-center justify-center text-center">
-            <div className="text-teal-accent font-headline-lg text-headline-lg">{stats.successRate.rate}%</div>
+            <div className="text-teal-accent font-headline-lg text-headline-lg">{successRate.rate || 0}%</div>
             <div className="text-label-md text-muted-text">Success Rate</div>
           </div>
           <div className="bg-surface-container-high/30 p-4 border border-outline-variant/20 flex flex-col items-center justify-center text-center">
